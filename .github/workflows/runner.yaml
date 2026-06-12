@@ -58,7 +58,7 @@ jobs:
           # Создаем архив с необходимыми файлами
           tar -czf deploy-files.tar.gz \
             docker-compose.yml \
-            ./nginx/nginx.conf \
+            nginx/nginx.conf \
 
       - name: Deliver deploy file
         uses: appleboy/scp-action@v0.1.3
