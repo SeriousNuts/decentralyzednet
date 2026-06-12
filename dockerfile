@@ -16,8 +16,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Копируем исходный код
-COPY subscription_api.py .
-COPY .env .
+COPY . .
 
 # Создаем пользователя без прав root для безопасности
 RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
