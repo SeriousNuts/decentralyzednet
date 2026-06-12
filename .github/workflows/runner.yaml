@@ -98,12 +98,7 @@ jobs:
             #Удаляем старые образы 
             # Pull latest image
             docker pull ${{ secrets.DOCKER_HUB_USERNAME }}/${{ vars.PROJECT_NAME }}:${{ github.ref_name }}
-            #архивиция логов
-            LOG_DIR="./logs"
-            LOG_NAME="app.log"
-            ARCHIVE_NAME="sender_bot_log_update_$(date +%Y%m%d_%H%M%S).tar.gz"
-            
-            tar -czf $LOG_DIR/$ARCHIVE_NAME $LOG_DIR/$LOG_NAME
+
             cp nginx.conf ./nginx/
             
             # Stop and remove old containers
