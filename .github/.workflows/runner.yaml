@@ -1,0 +1,131 @@
+name: Deploy Decentralyzed
+
+on:
+  push:
+    branches: [master]
+
+jobs:
+  build_docker:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+    - name: Get build number
+      id: vars
+      run: echo ${{ github.ref_name }}-${{ github.run_number }}
+
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Log in to Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ vars.DOCKER_HUB_URL }}
+        username: ${{ secrets.DOCKER_HUB_USERNAME }}
+        password: ${{ secrets.DOCKER_HUB_TOKEN }}
+
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ vars.DOCKER_HUB_URL }}/${{ secrets.DOCKER_HUB_USERNAME }}/${{ vars.PROJECT_NAME }}
+
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+
+  deplyement_files_delivery:
+    runs-on: ubuntu-latest
+    needs: build_docker
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Prepare deployment files
+        run: |
+          # Создаем архив с необходимыми файлами
+          tar -czf deploy-files.tar.gz \
+            docker-compose.yml \
+
+      - name: Deliver deploy file
+        uses: appleboy/scp-action@v0.1.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: "deploy-files.tar.gz"
+          target: ${{ secrets.HOME_DIR }}
+
+          strip_components: 0
+
+  deploy_on_server:
+    runs-on: ubuntu-latest
+    needs: deplyement_files_delivery
+    steps:
+      - name: Deploy to server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            docker rm ${{ vars.PROJECT_NAME }}
+            set -e
+            cd ${{ secrets.HOME_DIR }}
+            
+            # Создаем backup текущей конфигурации
+            tar -czf backup_$(date +%Y%m%d_%H%M%S).tar.gz *.ini *.sql .env 2>/dev/null || true
+            
+            # Распаковываем новые файлы
+            tar -xzf deploy-files.tar.gz
+            chmod 600 .env
+            #Удаляем старые образы 
+            # Pull latest image
+            docker pull ${{ secrets.DOCKER_HUB_USERNAME }}/${{ vars.PROJECT_NAME }}:${{ github.ref_name }}
+            #архивиция логов
+            LOG_DIR="./logs"
+            LOG_NAME="app.log"
+            ARCHIVE_NAME="sender_bot_log_update_$(date +%Y%m%d_%H%M%S).tar.gz"
+            
+            tar -czf $LOG_DIR/$ARCHIVE_NAME $LOG_DIR/$LOG_NAME
+            
+            # Stop and remove old containers
+            docker compose -f docker-compose.yml down
+            
+            # Start new containers
+            docker compose -f docker-composeyml up -d
+            
+            # Clean up old images
+            docker image prune -f
+            
+            # Remove deploy archive
+            rm deploy-files.tar.gz
+
+      - name: Verify deployment
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            set -e
+            sleep 15
+            if curl --connect-timeout 5 http://localhost:8080/health | grep -c health; then
+              docker compose -f docker-compose.prod.yaml ps
+              exit 0
+            else
+              docker compose -f docker-compose.prod.yaml logs -f --tail 20 ${{ vars.PROJECT_NAME }}
+              exit 1
+            fi

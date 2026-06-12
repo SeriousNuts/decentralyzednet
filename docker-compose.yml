@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  subscription-api:
+    build: .
+    container_name: vpn-subscription-api
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT}:${APP_PORT}"
+    environment:
+      - REMNAWAVE_BASE_URL=${REMNAWAVE_BASE_URL}
+      - REMNAWAVE_TOKEN=${REMNAWAVE_TOKEN}
+      - UPDATE_INTERVAL_MINUTES=${UPDATE_INTERVAL_MINUTES:-30}
+    volumes:
+      # Опционально: монтируем файл с логами
+      - ./logs:/app/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${APP_PORT}/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - vpn-network
+
+networks:
+  vpn-network:
+    driver: bridge
