@@ -1,28 +1,45 @@
 version: '3.8'
 
 services:
-  subscription-api:
-    build: .
+  # FastAPI приложение
+  app:
+    build: ./app
     container_name: vpn-subscription-api
     restart: unless-stopped
-    ports:
-      - "${APP_PORT}:${APP_PORT}"
     environment:
-      - REMNAWAVE_BASE_URL=${REMNAWAVE_BASE_URL}
-      - REMNAWAVE_TOKEN=${REMNAWAVE_TOKEN}
-      - UPDATE_INTERVAL_MINUTES=${UPDATE_INTERVAL_MINUTES:-30}
-    volumes:
-      # Опционально: монтируем файл с логами
-      - ./logs:/app/logs
+      - .env
+    networks:
+      - internal-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:${APP_PORT}/health"]
+      test: [ "CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:${APP_PORT}/health')" ]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 40s
+
+  # Nginx прокси
+  nginx:
+    image: nginx:alpine
+    container_name: vpn-subscription-nginx
+    restart: unless-stopped
+    ports:
+      - "${INTERNAL_HTTPS_PORT}:${INTERNAL_HTTPS_PORT}"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - ./nginx/logs:/var/log/nginx
+    depends_on:
+      - app
     networks:
-      - vpn-network
+      - internal-network
+      - external-network
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "https://localhost/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
 networks:
-  vpn-network:
+  internal-network:
+    driver: bridge
+  external-network:
     driver: bridge

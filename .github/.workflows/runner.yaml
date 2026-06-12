@@ -58,6 +58,7 @@ jobs:
           # Создаем архив с необходимыми файлами
           tar -czf deploy-files.tar.gz \
             docker-compose.yml \
+            ./nginx/nginx.conf \
 
       - name: Deliver deploy file
         uses: appleboy/scp-action@v0.1.3
@@ -84,6 +85,9 @@ jobs:
             docker rm ${{ vars.PROJECT_NAME }}
             set -e
             cd ${{ secrets.HOME_DIR }}
+            set -o allexport
+            source .env
+            set +o allexport
             
             # Создаем backup текущей конфигурации
             tar -czf backup_$(date +%Y%m%d_%H%M%S).tar.gz *.ini *.sql .env 2>/dev/null || true
@@ -100,12 +104,13 @@ jobs:
             ARCHIVE_NAME="sender_bot_log_update_$(date +%Y%m%d_%H%M%S).tar.gz"
             
             tar -czf $LOG_DIR/$ARCHIVE_NAME $LOG_DIR/$LOG_NAME
+            cp nginx.conf ./nginx/
             
             # Stop and remove old containers
             docker compose -f docker-compose.yml down
             
             # Start new containers
-            docker compose -f docker-composeyml up -d
+            docker compose -f docker-compose.yml up -d
             
             # Clean up old images
             docker image prune -f
@@ -122,7 +127,7 @@ jobs:
           script: |
             set -e
             sleep 15
-            if curl --connect-timeout 5 http://localhost:8080/health | grep -c health; then
+            if curl --connect-timeout 5 http://localhost:${APP_PORT}/health | grep -c health; then
               docker compose -f docker-compose.prod.yaml ps
               exit 0
             else

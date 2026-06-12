@@ -11,6 +11,8 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, Response, HTTPException
 from remnawave_api import RemnawaveSDK
 
+from v2rayHealthChecker import check_host_availability
+
 # Загрузка переменных окружения
 load_dotenv()
 
@@ -212,64 +214,6 @@ async def fetch_subscription_file(session: aiohttp.ClientSession, url: str) -> s
         return ""
 
 
-async def extract_host_port(config_line: str) -> Tuple[str, int]:
-    """Извлекает хост и порт из URI конфига."""
-    import re
-    import base64
-    import json
-
-    if config_line.startswith("vmess://"):
-        try:
-            encoded = config_line[8:]
-            decoded = base64.b64decode(encoded).decode('utf-8')
-            config_json = json.loads(decoded)
-            host = config_json.get("add", "")
-            port = int(config_json.get("port", 0))
-            if host and port:
-                return host, port
-        except:
-            pass
-
-    patterns = [
-        (r'(?:vless|trojan|ss|ssr)://[^@]+@([^:]+):(\d+)', lambda m: (m.group(1), int(m.group(2)))),
-        (r'(?:vless|trojan|ss|ssr)://([^:]+):(\d+)', lambda m: (m.group(1), int(m.group(2)))),
-    ]
-
-    for pattern, extractor in patterns:
-        match = re.search(pattern, config_line)
-        if match:
-            try:
-                return extractor(match)
-            except:
-                continue
-
-    return None, None
-
-
-async def check_host_availability(config_line: str) -> Tuple[str, bool]:
-    """Проверяет доступность V2Ray конфига."""
-    if not any(config_line.startswith(prefix) for prefix in ["vmess://", "vless://", "trojan://", "ss://", "ssr://"]):
-        return config_line, False
-
-    try:
-        host, port = await extract_host_port(config_line)
-        if not host or not port:
-            return config_line, False
-
-        try:
-            _, writer = await asyncio.wait_for(
-                asyncio.open_connection(host, port),
-                timeout=CHECK_TIMEOUT
-            )
-            writer.close()
-            await writer.wait_closed()
-            return config_line, True
-        except:
-            return config_line, False
-    except:
-        return config_line, False
-
-
 async def update_working_configs(force: bool = False):
     """
     Обновляет список рабочих конфигов в фоне.
@@ -303,27 +247,40 @@ async def update_working_configs(force: bool = False):
 
             async def limited_check(cfg):
                 async with semaphore:
-                    return await check_host_availability(cfg)
-            # для теста
-            tasks = [limited_check(cfg) for cfg in configs[1:50]]
+                    cfg, is_ok, latency = await check_host_availability(cfg)
+                    if is_ok:
+                        return {
+                            "config": cfg,
+                            "latency": latency
+                        }
+                    return None
+
+            # Для теста (берём первые 500 конфигов)
+            tasks = [limited_check(cfg) for cfg in configs[1:500]]
             results = []
 
             # Отслеживаем прогресс без блокировки основного цикла
             for i, coro in enumerate(asyncio.as_completed(tasks)):
                 result = await coro
-                results.append(result)
+                if result is not None:  # Добавляем только рабочие конфиги
+                    results.append(result)
                 if (i + 1) % 100 == 0:
-                    logger.info(f"Прогресс проверки: {i + 1}/{len(configs)}")
+                    logger.info(f"Прогресс проверки: {i + 1}/{len(configs[1:500])}")
 
-            # Фильтруем рабочие конфиги
-            new_working_configs = [cfg for cfg, is_ok in results if is_ok]
+            # Сортировка по задержке (самые быстрые сверху)
+            results.sort(key=lambda x: x["latency"])
+
+            # Сохраняем в кэш только строки конфигов (без latency)
+            working_configs_cache = [item["config"] for item in results]
+
+            logger.info(f"Найдено рабочих конфигов: {len(working_configs_cache)}")
 
             # Атомарно обновляем кэш
-            new_version = await atomic_cache.update(new_working_configs)
+            new_version = await atomic_cache.update(working_configs_cache)
 
             elapsed = (datetime.now() - start_time).total_seconds()
             logger.info(f"✅ Обновление завершено за {elapsed:.1f} сек. "
-                        f"Рабочих конфигов: {len(new_working_configs)} из {len(configs)}. "
+                        f"Рабочих конфигов: {len(working_configs_cache)} из {len(configs)}. "
                         f"Новая версия кэша: {new_version}")
 
             last_update_time = datetime.now()
