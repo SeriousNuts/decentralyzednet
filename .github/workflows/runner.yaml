@@ -55,10 +55,17 @@ jobs:
 
       - name: Prepare deployment files
         run: |
-          # Создаем архив с необходимыми файлами
+          # Копируем nginx.conf в корень проекта
+          cp nginx/nginx.conf ./nginx.conf
+          
+          # Создаем архив
           tar -czf deploy-files.tar.gz \
             docker-compose.yml \
-            nginx/nginx.conf \
+            nginx.conf \
+            .env 2>/dev/null || true
+          
+          # Удаляем временную копию
+          rm -f nginx.conf
 
       - name: Deliver deploy file
         uses: appleboy/scp-action@v0.1.3
