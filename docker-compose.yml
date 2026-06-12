@@ -2,7 +2,7 @@
 services:
   # FastAPI приложение
   app:
-    build: ./app
+    image: seriousnuts/decentralyzednet:master
     container_name: vpn-subscription-api
     restart: unless-stopped
     environment:
