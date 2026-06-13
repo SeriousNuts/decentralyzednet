@@ -23,7 +23,7 @@ services:
     environment:
       - .env
     ports:
-      - "${INTERNAL_HTTPS_PORT}:${INTERNAL_HTTPS_PORT}"
+      - "0.0.0.0:${INTERNAL_HTTPS_PORT}:${INTERNAL_HTTPS_PORT}"
     volumes:
       - ./nginx/conf/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./nginx/ssl:/etc/nginx/ssl:ro
@@ -34,7 +34,7 @@ services:
       - internal-network
       - external-network
     healthcheck:
-      test: [ "CMD", "curl", "-f", "https://localhost/health" ]
+      test: [ "CMD", "curl", "-f", "https://localhost:${INTERNAL_HTTPS_PORT}/health" ]
       interval: 30s
       timeout: 10s
       retries: 3
