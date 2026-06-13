@@ -65,6 +65,7 @@ jobs:
           echo $TAR_FILENAME
           echo $DOCKER_COMPOSE_FILENAME
           # Создаем архив
+          ls -la
           tar -czf $TAR_FILENAME \
             $DOCKER_COMPOSE_FILENAME \
             nginx.conf
