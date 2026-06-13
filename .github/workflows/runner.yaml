@@ -3,6 +3,11 @@ name: Deploy Decentralyzed
 on:
   push:
     branches: [master]
+env:
+  DOCKER_COMPOSE_FILENAME: docker-compose.yaml
+  TAR_FILENAME: deploy-files.tar.gz
+  HOME_DIR: /home/${{ secrets.SSH_USER }}
+
 
 jobs:
   build_docker:
@@ -10,10 +15,6 @@ jobs:
     permissions:
       contents: read
       packages: write
-    env:
-      DOCKER_COMPOSE_FILENAME: docker-compose.yml
-      TAR_FILENAME: deploy-files.tar.gz
-      HOME_DIR: /home/${{ secrets.SSH_USER }}
 
     steps:
     - name: Get build number
