@@ -67,8 +67,7 @@ jobs:
           # Создаем архив
           tar -czf $TAR_FILENAME \
             $DOCKER_COMPOSE_FILENAME \
-            nginx.conf \
-            .env
+            nginx.conf
           
           # Удаляем временную копию
           rm -f nginx.conf
