@@ -26,4 +26,4 @@ USER appuser
 EXPOSE 3100
 
 # Команда для запуска приложения
-CMD ["python", "-u", "subscription_api.py"]
+CMD ["python", "-u", "main.py"]
