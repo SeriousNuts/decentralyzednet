@@ -62,12 +62,12 @@ jobs:
         run: |
           # Копируем nginx.conf в корень проекта
           cp nginx/nginx.conf ./nginx.conf
-          echo $TAR_FILENAME
-          echo $DOCKER_COMPOSE_FILENAME
+          echo ${{ env.TAR_FILENAME }}
+          echo ${{ env.DOCKER_COMPOSE_FILENAME }}
           # Создаем архив
           ls -la
-          tar -czf $TAR_FILENAME \
-            $DOCKER_COMPOSE_FILENAME \
+          tar -czf ${{ env.TAR_FILENAME }} \
+            ${{ env.DOCKER_COMPOSE_FILENAME }} \
             nginx.conf
           
           # Удаляем временную копию
@@ -79,8 +79,8 @@ jobs:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          source: $TAR_FILENAME
-          target: $HOME_DIR
+          source: ${{ env.TAR_FILENAME }}
+          target: ${{ env.HOME_DIR }}
 
   deploy_on_server:
     runs-on: ubuntu-latest
@@ -95,7 +95,7 @@ jobs:
           script: |
             docker rm ${{ vars.PROJECT_NAME }}
             set -e
-            cd $HOME_DIR
+            cd ${{ env.HOME_DIR }}
             set -o allexport
             source .env
             set +o allexport
@@ -104,7 +104,7 @@ jobs:
             tar -czf backup_$(date +%Y%m%d_%H%M%S).tar.gz *.ini *.sql .env 2>/dev/null || true
             
             # Распаковываем новые файлы
-            tar -xzf $TAR_FILENAME
+            tar -xzf ${{ env.TAR_FILENAME }}
             chmod 600 .env
             #Удаляем старые образы 
             # Pull latest image
@@ -113,16 +113,16 @@ jobs:
             cp nginx.conf ./nginx/conf/nginx.conf
             
             # Stop and remove old containers
-            docker compose -f $DOCKER_COMPOSE_FILENAME down
+            docker compose -f ${{ env.DOCKER_COMPOSE_FILENAME }} down
             
             # Start new containers
-            docker compose -f $DOCKER_COMPOSE_FILENAME up -d
+            docker compose -f ${{ env.DOCKER_COMPOSE_FILENAME }} up -d
             
             # Clean up old images
             docker image prune -f
             
             # Remove deploy archive
-            rm $TAR_FILENAME
+            rm ${{ env.TAR_FILENAME }}
 
       - name: Verify deployment
         uses: appleboy/ssh-action@v1.0.3
@@ -134,9 +134,9 @@ jobs:
             set -e
             sleep 15
             if curl --connect-timeout 5 http://localhost:${APP_PORT}/health | grep -c health; then
-              docker compose -f $DOCKER_COMPOSE_FILENAME ps
+              docker compose -f ${{ env.DOCKER_COMPOSE_FILENAME }} ps
               exit 0
             else
-              docker compose -f $DOCKER_COMPOSE_FILENAME logs -f --tail 20 ${{ vars.PROJECT_NAME }}
+              docker compose -f ${{ env.DOCKER_COMPOSE_FILENAME }} logs -f --tail 20 ${{ vars.PROJECT_NAME }}
               exit 1
             fi
