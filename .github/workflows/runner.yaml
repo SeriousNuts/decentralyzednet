@@ -61,7 +61,8 @@ jobs:
         run: |
           # Копируем nginx.conf в корень проекта
           cp nginx/nginx.conf ./nginx.conf
-          
+          echo $TAR_FILENAME
+          echo $DOCKER_COMPOSE_FILENAME
           # Создаем архив
           tar -czf $TAR_FILENAME \
             $DOCKER_COMPOSE_FILENAME \
