@@ -1,16 +1,15 @@
-
 services:
   # FastAPI приложение
   app:
     image: seriousnuts/decentralyzednet:master
     container_name: vpn-subscription-api
     restart: unless-stopped
-    environment:
-      - .env
+    env_file:
+      - .env  # Исправлено!
     networks:
       - internal-network
     healthcheck:
-      test: [ "CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:${APP_PORT}/health')" ]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:${APP_PORT:-8000}/health')"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -20,10 +19,10 @@ services:
     image: nginx:alpine
     container_name: vpn-subscription-nginx
     restart: unless-stopped
-    environment:
-      - .env
+    env_file:
+      - .env  # Исправлено!
     ports:
-      - "0.0.0.0:${INTERNAL_HTTPS_PORT}:${INTERNAL_HTTPS_PORT}"
+      - "0.0.0.0:${INTERNAL_HTTPS_PORT:-443}:${INTERNAL_HTTPS_PORT:-443}"
     volumes:
       - ./nginx/conf/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./nginx/ssl:/etc/nginx/ssl:ro
@@ -34,7 +33,7 @@ services:
       - internal-network
       - external-network
     healthcheck:
-      test: [ "CMD", "curl", "-f", "https://localhost:${INTERNAL_HTTPS_PORT}/health" ]
+      test: ["CMD", "curl", "-f", "https://localhost:${INTERNAL_HTTPS_PORT:-443}/health"]
       interval: 30s
       timeout: 10s
       retries: 3
