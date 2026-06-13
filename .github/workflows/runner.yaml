@@ -82,8 +82,6 @@ jobs:
           source: $TAR_FILENAME
           target: $HOME_DIR
 
-          strip_components: 0
-
   deploy_on_server:
     runs-on: ubuntu-latest
     needs: deplyement_files_delivery
