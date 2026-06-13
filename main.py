@@ -23,6 +23,8 @@ MAX_CONCURRENT_CHECKS = int(os.getenv("MAX_CONCURRENT_CHECKS", "50"))  # мак�
 UPDATE_INTERVAL_MINUTES = int(os.getenv("UPDATE_INTERVAL_MINUTES", "1"))
 APP_PORT = int(os.getenv("APP_PORT", "3100"))
 APP_HOST = os.getenv("APP_HOST", "0.0.0.0")
+PROFILE_TITLE = os.getenv("PROFILE_TITLE", "")
+PROFILE_UPDATE_INTERVAL = int(os.getenv("PROFILE_UPDATE_INTERVAL", "1"))
 
 # Настройки Remnawave
 REMNAWAVE_BASE_URL = os.getenv("REMNAWAVE_BASE_URL")  # URL панели Remnawave
@@ -35,7 +37,9 @@ if not REMNAWAVE_BASE_URL or not REMNAWAVE_TOKEN:
 RESPONSE_HEADERS = {
     "Content-Type": "text/plain; charset=utf-8",
     "Profile-Update-Interval": str(UPDATE_INTERVAL_MINUTES),
-    "Cache-Control": "no-cache"
+    "Cache-Control": "no-cache",
+    "profile-title": PROFILE_TITLE,
+    "profile-update-interval": PROFILE_UPDATE_INTERVAL
 }
 # =================================================
 
@@ -256,7 +260,7 @@ async def update_working_configs(force: bool = False):
                     return None
 
             # Для теста (берём первые 500 конфигов)
-            tasks = [limited_check(cfg) for cfg in configs[1:500]]
+            tasks = [limited_check(cfg) for cfg in configs]
             results = []
 
             # Отслеживаем прогресс без блокировки основного цикла
@@ -265,7 +269,7 @@ async def update_working_configs(force: bool = False):
                 if result is not None:  # Добавляем только рабочие конфиги
                     results.append(result)
                 if (i + 1) % 100 == 0:
-                    logger.info(f"Прогресс проверки: {i + 1}/{len(configs[1:500])}")
+                    logger.info(f"Прогресс проверки: {i + 1}/{len(configs)}")
 
             # Сортировка по задержке (самые быстрые сверху)
             results.sort(key=lambda x: x["latency"])
