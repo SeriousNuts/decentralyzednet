@@ -68,7 +68,7 @@ jobs:
           tar -czf $TAR_FILENAME \
             $DOCKER_COMPOSE_FILENAME \
             nginx.conf \
-            .env 2>/dev/null || true
+            .env
           
           # Удаляем временную копию
           rm -f nginx.conf
