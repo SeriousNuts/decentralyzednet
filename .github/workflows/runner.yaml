@@ -10,7 +10,7 @@ jobs:
     permissions:
       contents: read
       packages: write
-    environment:
+    env:
       DOCKER_COMPOSE_FILENAME: docker-compose.yml
       TAR_FILENAME: deploy-files.tar.gz
       HOME_DIR: /home/${{ secrets.SSH_USER }}
